@@ -21,6 +21,8 @@ class ServerArgs:
     sm_ratio: float = 108 / 132
     prefill_only: bool = False
     decode_only: bool = False
+    ep_size: int = 0
+    tp_size: int = 0
 
     @classmethod
     def from_args(cls, args):
@@ -42,4 +44,6 @@ class ServerArgs:
             sm_ratio=args.sm_ratio,
             prefill_only=args.prefill_only,
             decode_only=args.decode_only,
+            ep_size=args.ep_size,
+            tp_size=args.tp_size,
         )
