@@ -33,11 +33,21 @@ class DecoderBlock:
         weight_size = attn_weights_bytes + ffn_weights_bytes
         return weight_size
 
-    def flops_msg(self):
+    def flops_bytes(self):
         return 0
 
-    def kvcache_msg(self):
-        return 0
+    def kvcache_bytes(self, context_len: int):
+        
+        # 如果是 MHA 或 MLA，大小随 context_len 线性增长
+        if self.attn_type() in ["MHA", "MLA"]:
+            # 获取单层基础大小
+            size = self.attn.per_token_kv_cache_size()
+            return size * context_len
+        elif self.attn_type() == "LinearAttn":
+            # 如果是 LinearAttn，返回的是固定的 States 大小
+            return self.attn.state_kv_cache_size()
+        else:
+            raise NotImplementedError
 
     def prefill_cost(self):
         return 0
@@ -68,6 +78,9 @@ class DecoderBlocks:
 
     def weights_bytes(self):
         return sum(block.weights_bytes() for block in self.blocks)
+
+    def kvcache_bytes(self, context_len: int):
+        return sum(block.kvcache_msg(context_len) for block in self.blocks)
 
     def total_attn_weights(self):
         return sum(
@@ -114,4 +127,24 @@ class DecoderBlocks:
         print(
             f"{'Total (GB)':<6} | {'':<12} | {'':<12} | {total_attn_mb/1024:<12.4f} | {total_ffn_mb/1024:<12.4f} | {total_mb/1024:<12.4f}"
         )
+        print(separator)
+
+    def print_kvcache_info(self, context_len: int):
+        header = f"{'Layer':<6} | {'Attn Type':<12} | {'KV/State (MB)':<15}"
+        separator = "-" * len(header)
+
+        print(f"\nKV Cache / States Information (Context Len: {context_len}):")
+        print(separator)
+        print(header)
+        print(separator)
+
+        for layer_idx, block in enumerate(self.blocks):
+            kv_bytes = block.kvcache_msg(context_len)
+            kv_mb = kv_bytes / (1024**2)
+            print(f"{layer_idx:<6} | {block.attn_type():<12} | {kv_mb:<15.2f}")
+
+        print(separator)
+        total_kv_mb = self.kvcache_bytes(context_len) / (1024**2)
+        print(f"{'Total':<6} | {'':<12} | {total_kv_mb:<15.2f}")
+        print(f"{'Total (GB)':<6} | {'':<12} | {total_kv_mb/1024:<15.4f}")
         print(separator)

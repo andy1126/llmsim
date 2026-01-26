@@ -45,7 +45,15 @@ class Attn:
 
     @abstractmethod
     def attn_type(self):
-        return "Default"
+        raise NotImplementedError
+    
+    @abstractmethod
+    def per_token_kv_cache_size(self):
+        raise NotImplementedError
+    
+    @abstractmethod
+    def state_kv_cache_size(self):
+        raise NotImplementedError
 
 
 class MHAAttn(Attn):
@@ -79,6 +87,19 @@ class MHAAttn(Attn):
         if self.serverArgs.use_fp8_gemm:
             return total
         return 2 * total
+
+    def per_token_kv_cache_size(self):
+        tp_size = self.serverArgs.tp_size if self.serverArgs.tp_size > 0 else 1
+        cfg = self.config.attn_config
+        
+        # MHA KV Cache: 每个 token 存储 2 * num_kv_heads * head_dim
+        # 返回单层每个 token 占用的字节数
+        per_token_size = (
+            2 * (cfg.num_key_value_heads // tp_size) * cfg.head_dim
+        )
+        if not self.serverArgs.use_fp8_kv:
+            per_token_size *= 2
+        return per_token_size
 
 
 class MLAAttn(Attn):
@@ -124,6 +145,26 @@ class MLAAttn(Attn):
         return 2 * total
 
 
+    def per_token_kv_cache_size(self):
+        from src.config.model_config import HybridAttnConfig, MLAConfig
+
+        cfg = self.config.attn_config
+        if isinstance(cfg, HybridAttnConfig):
+            cfg = cfg.full_attn_config
+
+        if not isinstance(cfg, MLAConfig):
+            return 0
+
+        # MLA KV Cache 存储内容 (单层每个 token):
+        # 1. 压缩后的 KV latent (kv_lora_rank)
+        # 2. 共享的 RoPE Key (qk_rope_head_dim)
+        per_token_size = cfg.kv_lora_rank + cfg.qk_rope_head_dim
+        
+        if not self.serverArgs.use_fp8_kv:
+            per_token_size *= 2
+        return per_token_size
+
+
 class LinearAttn(Attn):
     def __init__(self, serverArgs: ServerArgs, config: ModelConfig):
         super().__init__(serverArgs, config)
@@ -165,3 +206,37 @@ class LinearAttn(Attn):
         if self.serverArgs.use_fp8_gemm:
             return s + wconv
         return 2 * s + wconv
+
+    def state_kv_cache_size(self):
+        from src.config.model_config import HybridAttnConfig, LinearAttnConfig
+
+        cfg = self.config.attn_config
+        if isinstance(cfg, HybridAttnConfig):
+            cfg = cfg.linear_attn_config
+
+        if not isinstance(cfg, LinearAttnConfig):
+            return 0
+
+        tp_size = self.serverArgs.tp_size if self.serverArgs.tp_size > 0 else 1
+
+        # 线性注意力状态 (固定大小，不随长度增长)
+        # 按 Head 维度切分到各个 TP rank
+        num_v_heads = cfg.num_value_heads // tp_size
+        num_k_heads = cfg.num_key_heads // tp_size
+        
+        # 1. Conv State: (v_dim + 2 * k_dim) * (kernel - 1) * 2 (bf16)
+        conv_state_size = (
+            (num_v_heads * cfg.value_head_dim + 2 * num_k_heads * cfg.key_head_dim)
+            * (cfg.conv_kernel_dim - 1)
+            * 2
+        )
+        
+        # 2. SSM/Recurrent State: num_v_heads * k_dim * v_dim * 4 (fp32)
+        ssm_state_size = (
+            num_v_heads
+            * cfg.key_head_dim
+            * cfg.value_head_dim
+            * 4
+        )
+
+        return conv_state_size + ssm_state_size
