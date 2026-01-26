@@ -80,7 +80,7 @@ class DecoderBlocks:
         return sum(block.weights_bytes() for block in self.blocks)
 
     def kvcache_bytes(self, context_len: int):
-        return sum(block.kvcache_msg(context_len) for block in self.blocks)
+        return sum(block.kvcache_bytes(context_len) for block in self.blocks)
 
     def total_attn_weights(self):
         return sum(
@@ -139,7 +139,7 @@ class DecoderBlocks:
         print(separator)
 
         for layer_idx, block in enumerate(self.blocks):
-            kv_bytes = block.kvcache_msg(context_len)
+            kv_bytes = block.kvcache_bytes(context_len)
             kv_mb = kv_bytes / (1024**2)
             print(f"{layer_idx:<6} | {block.attn_type():<12} | {kv_mb:<15.2f}")
 

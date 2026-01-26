@@ -89,9 +89,17 @@ class MHAAttn(Attn):
         return 2 * total
 
     def per_token_kv_cache_size(self):
+        from src.config.model_config import HybridAttnConfig, MHAConfig
+
         tp_size = self.serverArgs.tp_size if self.serverArgs.tp_size > 0 else 1
         cfg = self.config.attn_config
         
+        if isinstance(cfg, HybridAttnConfig):
+            cfg = cfg.full_attn_config
+
+        if not isinstance(cfg, MHAConfig):
+            return 0
+
         # MHA KV Cache: 每个 token 存储 2 * num_kv_heads * head_dim
         # 返回单层每个 token 占用的字节数
         per_token_size = (
@@ -100,6 +108,9 @@ class MHAAttn(Attn):
         if not self.serverArgs.use_fp8_kv:
             per_token_size *= 2
         return per_token_size
+
+    def state_kv_cache_size(self):
+        return 0
 
 
 class MLAAttn(Attn):
@@ -164,6 +175,9 @@ class MLAAttn(Attn):
             per_token_size *= 2
         return per_token_size
 
+    def state_kv_cache_size(self):
+        return 0
+
 
 class LinearAttn(Attn):
     def __init__(self, serverArgs: ServerArgs, config: ModelConfig):
@@ -206,6 +220,9 @@ class LinearAttn(Attn):
         if self.serverArgs.use_fp8_gemm:
             return s + wconv
         return 2 * s + wconv
+
+    def per_token_kv_cache_size(self):
+        return 0
 
     def state_kv_cache_size(self):
         from src.config.model_config import HybridAttnConfig, LinearAttnConfig
