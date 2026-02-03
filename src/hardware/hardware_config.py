@@ -30,8 +30,10 @@ class MemoryConfig:
 class BandwidthConfig:
     """带宽配置"""
 
-    hbm_bandwidth_gb_s: float = 1.8  # HBM带宽(GB/s)
-    dma_bandwidth_gb_s: float = 85.0  # DMA带宽(GB/s) - 扩展模式
+    hbm_bandwidth_gb_s: float = 1.8  # HBM带宽(TB/s)
+    dma_bandwidth_gb_s: float = (
+        85.0  # DMA带宽(GB/s) - 扩展模式, DISPATCH/COMBINE使用的带宽
+    )
     dma_bandwidth_decode_gb_s: float = 22.64  # DMA带宽(GB/s) - 解码模式
 
     # 机内通信（同一机器内多卡，走 Link 如 NVLink）
@@ -41,12 +43,6 @@ class BandwidthConfig:
     # 机间通信（不同机器，走 RDMA 如 InfiniBand）
     rdma_bandwidth_gb_s: float = 85.0  # RDMA带宽(GB/s) - 扩展模式
     rdma_bandwidth_decode_gb_s: float = 22.64  # RDMA带宽(GB/s) - 解码模式
-
-    # 向后兼容：network_bandwidth 映射到 link_bandwidth
-    @property
-    def network_bandwidth_gb_s(self) -> float:
-        """向后兼容：网络带宽默认使用 Link 带宽"""
-        return self.link_bandwidth_gb_s
 
     @property
     def network_bandwidth_decode_gb_s(self) -> float:
@@ -85,9 +81,6 @@ class HardwareConfig:
     @staticmethod
     def _parse_bandwidth_config(bandwidth_data: dict) -> "BandwidthConfig":
         """解析带宽配置，支持新旧两种格式"""
-        # 默认值
-        network_bw = bandwidth_data.get("network_bandwidth_gb_s", 85.0)
-        network_bw_decode = bandwidth_data.get("network_bandwidth_decode_gb_s", 22.64)
 
         # 如果新格式中有 link/rdma 配置，使用它们；否则回退到 network_bandwidth
         return BandwidthConfig(
@@ -96,13 +89,13 @@ class HardwareConfig:
             dma_bandwidth_decode_gb_s=bandwidth_data.get(
                 "dma_bandwidth_decode_gb_s", 22.64
             ),
-            link_bandwidth_gb_s=bandwidth_data.get("link_bandwidth_gb_s", network_bw),
+            link_bandwidth_gb_s=bandwidth_data.get("link_bandwidth_gb_s", 85),
             link_bandwidth_decode_gb_s=bandwidth_data.get(
-                "link_bandwidth_decode_gb_s", network_bw_decode
+                "link_bandwidth_decode_gb_s", 22.64
             ),
-            rdma_bandwidth_gb_s=bandwidth_data.get("rdma_bandwidth_gb_s", network_bw),
+            rdma_bandwidth_gb_s=bandwidth_data.get("rdma_bandwidth_gb_s", 85),
             rdma_bandwidth_decode_gb_s=bandwidth_data.get(
-                "rdma_bandwidth_decode_gb_s", network_bw_decode
+                "rdma_bandwidth_decode_gb_s", 22.64
             ),
         )
 

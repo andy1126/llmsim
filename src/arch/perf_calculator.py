@@ -109,7 +109,7 @@ class PerformanceCalculator:
                 # combine 使用 DeepSeek 老版本中的 nb 配置（解码模式下 22.64）
                 bandwidth_gb_s = self.hardware.bandwidth.dma_bandwidth_decode_gb_s
             else:
-                bandwidth_gb_s = self.hardware.bandwidth.network_bandwidth_gb_s
+                bandwidth_gb_s = self.hardware.bandwidth.link_bandwidth_gb_s
 
         io_volume = operator.get_io_volume()
         transfer_bytes = io_volume.get("transfer", io_volume.get("load", 0))
