@@ -142,56 +142,11 @@ class PerformanceCalculator:
             transfer_time = self.calculate_transfer_time(operator)
         elif metadata.op_type == "attention":
             transfer_time = 0.0
-
-            # compute_time = self.calculate_compute_time(operator)
-            def _legacy_cal_mac_time(
-                cal_count: int, dtype: int, mac_int8: float = 500.0
-            ) -> float:
-                """
-                old_main 风格的 MAC 时间计算
-                返回: 微秒 (us)
-                """
-                return 2 * cal_count / mac_int8 / 1000000.0 * dtype
-
-            operate_io = metadata.io_config
-            m, n, k = (
-                operate_io.input_shape.m,
-                operate_io.input_shape.n,
-                operate_io.output_shape.n,
-            )
-            _count = m * n * k * metadata.batch_size
-            compute_time = _legacy_cal_mac_time(_count, operate_io.weight_dtype.value)
-
-            # print(f'op name = {metadata.name}, shape = {operate_io.input_shape}, {operate_io.output_shape}, cost {compute_time}')
-            op_name = metadata.name
-            if op_name == "qkv":
-                load_count = (
-                    operate_io.weight_shape.size() * metadata.batch_size
-                )  # 右边矩阵情况
-                store_count = (
-                    operate_io.input_shape.m
-                    * operate_io.weight_shape.n
-                    * metadata.batch_size
-                )  # 左边矩阵情况
-            else:
-                load_count = (
-                    operate_io.input_shape.size() + operate_io.weight_shape.size()
-                ) * metadata.batch_size
-                store_count = 0
-            memory_time = self.calculate_attention_hbm_time(
-                load_count,
-                operate_io.input_dtype.value,
-                store_count,
-                operate_io.output_dtype.value,
-                self.hardware.bandwidth.hbm_bandwidth_gb_s,
-            )
-            print(
-                f"load_count={load_count}, store_count={store_count}, hbm={memory_time}"
-            )
+            compute_time = operator.get_compute_complexity()
+            memory_time = operator.get_hbm_time(hardware=self.hardware)
 
         elif metadata.op_type == "matmul":
             compute_time = self.calculate_compute_time(operator)
-
             memory_time = self.calculate_memory_time(operator)
             # print(f'name = {operator.metadata.name}, compute_time = {compute_time}， memory_time={memory_time}')
             transfer_time = 0.0
