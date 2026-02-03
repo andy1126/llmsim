@@ -12,7 +12,7 @@ python3 src/main.py --model_path hf_config/deepseek_671b_r1_config.json \
     --enable_moe_dense_fully_dp \
     --hardware klx_p800 \
     --output_format excel \
-    --output_file prefill_result.xlsx
+    --output_file metrics/prefill_result.xlsx
 
 
 
