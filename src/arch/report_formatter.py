@@ -64,6 +64,7 @@ class ReportFormatter(ABC):
                     'compute': op_perf.compute_time,
                     'memory': op_perf.memory_time,
                     'transfer': op_perf.transfer_time,
+                    'op_time_single_layer': op_perf.op_time_single_layer,
                     'total': op_perf.total_time,
                     'percent': percentage,
                 })
@@ -139,13 +140,14 @@ class ConsoleReportFormatter(ReportFormatter):
             col_widths['compute'] = max(len('计算(us)'), 10) + 1
             col_widths['memory'] = max(len('内存(us)'), 10) + 1
             col_widths['transfer'] = max(len('传输(us)'), 10) + 1
+            col_widths['op_time_single_layer'] = max(len('单层理论延时(us)'), 15) + 1
             col_widths['total'] = max(len('总时间(ms)'), 10) + 1
             col_widths['percent'] = max(len('占比(%)'), 8) + 1
         else:
             col_widths = {
                 'name': 20, 'type': 10, 'm': 6, 'n': 6, 'k': 6,
                 'batch': 8, 'layers': 8, 'in_dtype': 8, 'out_dtype': 8,
-                'weight_dtype': 8, 'compute': 12, 'memory': 12, 'transfer': 12,
+                'weight_dtype': 8, 'compute': 12, 'memory': 12, 'transfer': 12, 'op_time_single_layer': 12,
                 'total': 12, 'percent': 10
             }
         
@@ -175,6 +177,7 @@ class ConsoleReportFormatter(ReportFormatter):
             ('compute', '计算(us)'),
             ('memory', '内存(us)'),
             ('transfer', '传输(us)'),
+            ('op_time_single_layer', '单层理论延时(us)'),
             ('total', '总时间(ms)'),
             ('percent', '占比(%)'),
         ]
@@ -201,6 +204,11 @@ class ConsoleReportFormatter(ReportFormatter):
                 
                 if key in ['compute', 'memory', 'transfer']:
                     # 浮点数，3位小数
+                    formatted = f"{value:.3f}"
+                    padded = self._pad_string(formatted, width, 'right')
+                    line += f"{padded} │ "
+                elif key == 'op_time_single_layer':
+                    # 单层理论延时，3位小数
                     formatted = f"{value:.3f}"
                     padded = self._pad_string(formatted, width, 'right')
                     line += f"{padded} │ "
@@ -342,7 +350,8 @@ class ExcelReportFormatter(ReportFormatter):
         ws.column_dimensions['L'].width = 12
         ws.column_dimensions['M'].width = 12
         ws.column_dimensions['N'].width = 12
-        ws.column_dimensions['O'].width = 10
+        ws.column_dimensions['O'].width = 12
+        ws.column_dimensions['P'].width = 10
         
         # 定义样式
         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -367,7 +376,7 @@ class ExcelReportFormatter(ReportFormatter):
         # 添加列标题
         headers = [
             '算子名称', '类型', 'm', 'n', 'k', 'batch', 'layers',
-            '输入', '输出', '权重', '计算(us)', '内存(us)', '传输(us)',
+            '输入', '输出', '权重', '计算(us)', '内存(us)', '传输(us)','单层理论延时(ms)',
             '总时间(ms)', '占比(%)'
         ]
         
@@ -383,7 +392,7 @@ class ExcelReportFormatter(ReportFormatter):
         col_keys = [
             'name', 'type', 'm', 'n', 'k', 'batch', 'layers',
             'in_dtype', 'out_dtype', 'weight_dtype', 'compute', 'memory',
-            'transfer', 'total', 'percent'
+            'transfer', 'op_time_single_layer', 'total', 'percent'
         ]
         
         for row_idx, row_data in enumerate(all_rows, start=4):
@@ -393,6 +402,10 @@ class ExcelReportFormatter(ReportFormatter):
                 
                 # 格式化值
                 if key in ['compute', 'memory', 'transfer', 'total']:
+                    cell.value = round(value, 3)
+                    cell.number_format = '0.000'
+                    cell.alignment = right_align
+                elif key == 'op_time_single_layer':
                     cell.value = round(value, 3)
                     cell.number_format = '0.000'
                     cell.alignment = right_align

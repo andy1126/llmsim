@@ -211,6 +211,7 @@ class PerformanceCalculator:
             compute_time=compute_time,
             memory_time=memory_time,
             transfer_time=transfer_time,
+            op_time_single_layer=max(compute_time, memory_time) + transfer_time,
             total_time=total_time / 1000.0,  # 转换为毫秒
             flops=operator.get_compute_complexity() * layer_count,
             memory_volume=operator.get_memory_requirement().get("weight", 0),

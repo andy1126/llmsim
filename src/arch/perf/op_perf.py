@@ -14,6 +14,9 @@ class OperatorPerformance:
     compute_time: float = 0.0
     memory_time: float = 0.0
     transfer_time: float = 0.0
+
+    op_time_single_layer: float = 0.0
+
     total_time: float = 0.0
 
     # 计算和内存指标
