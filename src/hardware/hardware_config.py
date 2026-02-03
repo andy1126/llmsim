@@ -3,7 +3,8 @@
 """
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional
 from enum import Enum
 
 class DeviceType(Enum):
@@ -24,11 +25,28 @@ class MemoryConfig:
 @dataclass
 class BandwidthConfig:
     """带宽配置"""
-    hbm_bandwidth_gb_s: float = 1.8  # HBM带宽(T/s)
+    hbm_bandwidth_gb_s: float = 1.8  # HBM带宽(GB/s)
     dma_bandwidth_gb_s: float = 85.0  # DMA带宽(GB/s) - 扩展模式
     dma_bandwidth_decode_gb_s: float = 22.64  # DMA带宽(GB/s) - 解码模式
-    network_bandwidth_gb_s: float = 85.0  # 网络带宽(GB/s)
-    network_bandwidth_decode_gb_s: float = 22.64  # 网络带宽(GB/s) - 解码模式
+    
+    # 机内通信（同一机器内多卡，走 Link 如 NVLink）
+    link_bandwidth_gb_s: float = 85.0  # Link带宽(GB/s) - 扩展模式
+    link_bandwidth_decode_gb_s: float = 22.64  # Link带宽(GB/s) - 解码模式
+    
+    # 机间通信（不同机器，走 RDMA 如 InfiniBand）
+    rdma_bandwidth_gb_s: float = 85.0  # RDMA带宽(GB/s) - 扩展模式
+    rdma_bandwidth_decode_gb_s: float = 22.64  # RDMA带宽(GB/s) - 解码模式
+    
+    # 向后兼容：network_bandwidth 映射到 link_bandwidth
+    @property
+    def network_bandwidth_gb_s(self) -> float:
+        """向后兼容：网络带宽默认使用 Link 带宽"""
+        return self.link_bandwidth_gb_s
+    
+    @property
+    def network_bandwidth_decode_gb_s(self) -> float:
+        """向后兼容：网络带宽默认使用 Link 带宽"""
+        return self.link_bandwidth_decode_gb_s
 
 
 @dataclass
@@ -45,9 +63,9 @@ class HardwareConfig:
     device_type: DeviceType = DeviceType.GPU
     name: str = "Default GPU"
     
-    memory: MemoryConfig = None
-    bandwidth: BandwidthConfig = None
-    compute: ComputeConfig = None
+    memory: Optional[MemoryConfig] = None
+    bandwidth: Optional[BandwidthConfig] = None
+    compute: Optional[ComputeConfig] = None
     
     def __post_init__(self):
         if self.memory is None:
@@ -56,6 +74,24 @@ class HardwareConfig:
             self.bandwidth = BandwidthConfig()
         if self.compute is None:
             self.compute = ComputeConfig()
+    
+    @staticmethod
+    def _parse_bandwidth_config(bandwidth_data: dict) -> "BandwidthConfig":
+        """解析带宽配置，支持新旧两种格式"""
+        # 默认值
+        network_bw = bandwidth_data.get('network_bandwidth_gb_s', 85.0)
+        network_bw_decode = bandwidth_data.get('network_bandwidth_decode_gb_s', 22.64)
+        
+        # 如果新格式中有 link/rdma 配置，使用它们；否则回退到 network_bandwidth
+        return BandwidthConfig(
+            hbm_bandwidth_gb_s=bandwidth_data.get('hbm_bandwidth_gb_s', 1.8),
+            dma_bandwidth_gb_s=bandwidth_data.get('dma_bandwidth_gb_s', 85.0),
+            dma_bandwidth_decode_gb_s=bandwidth_data.get('dma_bandwidth_decode_gb_s', 22.64),
+            link_bandwidth_gb_s=bandwidth_data.get('link_bandwidth_gb_s', network_bw),
+            link_bandwidth_decode_gb_s=bandwidth_data.get('link_bandwidth_decode_gb_s', network_bw_decode),
+            rdma_bandwidth_gb_s=bandwidth_data.get('rdma_bandwidth_gb_s', network_bw),
+            rdma_bandwidth_decode_gb_s=bandwidth_data.get('rdma_bandwidth_decode_gb_s', network_bw_decode),
+        )
     
     @classmethod
     def from_json(cls, config_path: str) -> "HardwareConfig":
@@ -92,13 +128,7 @@ class HardwareConfig:
                 hbm_size_gb=memory_data.get('hbm_size_gb', 96),
                 cache_line_size=memory_data.get('cache_line_size', 128),
             ),
-            bandwidth=BandwidthConfig(
-                hbm_bandwidth_gb_s=bandwidth_data.get('hbm_bandwidth_gb_s', 1.8),
-                dma_bandwidth_gb_s=bandwidth_data.get('dma_bandwidth_gb_s', 85.0),
-                dma_bandwidth_decode_gb_s=bandwidth_data.get('dma_bandwidth_decode_gb_s', 22.64),
-                network_bandwidth_gb_s=bandwidth_data.get('network_bandwidth_gb_s', 85.0),
-                network_bandwidth_decode_gb_s=bandwidth_data.get('network_bandwidth_decode_gb_s', 22.64),
-            ),
+            bandwidth=cls._parse_bandwidth_config(bandwidth_data),
             compute=ComputeConfig(
                 mac_int8_gflops=compute_data.get('mac_int8_gflops', 500.0),
                 mac_fp32_gflops=compute_data.get('mac_fp32_gflops', 125.0),

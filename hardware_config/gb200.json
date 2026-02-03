@@ -9,8 +9,10 @@
         "hbm_bandwidth_gb_s": 8.0,
         "dma_bandwidth_gb_s": 180.0,
         "dma_bandwidth_decode_gb_s": 30.0,
-        "network_bandwidth_gb_s": 1800.0,
-        "network_bandwidth_decode_gb_s": 40.0
+        "link_bandwidth_gb_s": 1800.0,
+        "link_bandwidth_decode_gb_s": 40.0,
+        "rdma_bandwidth_gb_s": 300.0,
+        "rdma_bandwidth_decode_gb_s": 40.0
     },
     "compute": {
         "mac_int8_gflops": 5000.0,

@@ -15,16 +15,20 @@
 
   // 带宽配置 (单位: GB/s)
   bandwidth: {
-    // HBM 带宽 (T/s)
+    // HBM 带宽 (GB/s)
     hbm_bandwidth_gb_s: 2.0,
     // DMA 带宽 - 扩展(prefill)模式
     dma_bandwidth_gb_s: 85.0,
     // DMA 带宽 - 解码(decode)模式
     dma_bandwidth_decode_gb_s: 18.58,
-    // 网络带宽 - 扩展模式 (NVLink 双向)
-    network_bandwidth_gb_s: 900.0,
-    // 网络带宽 - 解码模式
-    network_bandwidth_decode_gb_s: 22.64,
+    
+    // 机内通信 - Link 带宽 (NVLink)
+    link_bandwidth_gb_s: 900.0,
+    link_bandwidth_decode_gb_s: 22.64,
+    
+    // 机间通信 - RDMA 带宽
+    rdma_bandwidth_gb_s: 200.0,
+    rdma_bandwidth_decode_gb_s: 22.64,
   },
 
   // 计算性能配置 (单位: TFLOPS)
