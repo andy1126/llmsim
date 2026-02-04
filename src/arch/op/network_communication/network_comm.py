@@ -14,6 +14,10 @@ class NetworkComm:
         self.model_config = model_config
         self.schedule_config = schedule_config
 
-    def size_of_bandwidth(self):
+    def size_of_bandwidth(self, tensor: Tensor):
 
         return 0
+
+    def bandwidth_cost(self, tensor: Tensor):
+        """Return the bandwidth cost of a tensor in bytes"""
+        return self.size_of_bandwidth(tensor)
