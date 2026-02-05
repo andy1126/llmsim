@@ -1,0 +1,292 @@
+from src.arch.config import ForwardMode, Qwen3MoEConfig
+from src.arch.kvcache.kvcache import mha_gqa_kvcache, mha_gqa_kvcache_per_gpu
+from src.arch.models_arch.base_model_arch import BaseModelArch
+from src.arch.op.op_register import create_operator
+from src.arch.op.operator_base import DataType, OperatorIO, OperatorMetadata, Tensor
+
+
+class Qwen3MoEArch(BaseModelArch):
+    """Qwen3 MoE 模型架构 (如 Qwen3-235B-A22B)"""
+
+    def build_operators(self) -> None:
+        """构建 Qwen3 MoE 模型的算子"""
+        mc = self.model_config
+        sc = self.schedule_config
+
+        if not isinstance(mc, Qwen3MoEConfig):
+            raise ValueError(f"MoE 架构需要 Qwen3MoEConfig，但收到 {type(mc)}")
+
+        # 1. 建立注意力层 (MHA，复用 SimpleTransformerArch 逻辑)
+        num_layers = mc.num_hidden_layers + (1 if sc.is_mtp else 0)
+        self._build_attention_operators(num_layers)
+
+        # 2. 建立 MoE 层 (复用 DeepSeekV3Arch._build_moe_operators 逻辑，但无 shared expert)
+        self._build_moe_operators(num_layers)
+
+        # 3. 建立 Deep-EP 传输算子（如果启用）
+        if sc.deepep:
+            self._build_deepep_operators(num_layers)
+
+    def _build_attention_operators(self, num_layers: int) -> None:
+        """构建 MHA 注意力算子 (复用 SimpleTransformerArch 逻辑)"""
+        mc = self.model_config
+        sc = self.schedule_config
+
+        assert mc.num_attention_heads % sc.tp_size == 0
+        if mc.num_key_value_heads > sc.tp_size:
+            assert mc.num_key_value_heads % sc.tp_size == 0
+        else:
+            assert sc.tp_size % mc.num_key_value_heads == 0
+
+        # 计算每个 rank 的头数
+        num_heads_per_rank = mc.num_attention_heads // sc.tp_size
+        kv_heads_per_rank = max(1, mc.num_key_value_heads // sc.tp_size)
+        seq_len = self.get_seq_length()
+        head_dim = getattr(mc, "head_dim", mc.hidden_size // mc.num_attention_heads)
+
+        # 1. QKV 投影
+        qkv_proj_metadata = OperatorMetadata(
+            name="qkv_proj",
+            op_type="matmul",
+            io_config=OperatorIO(
+                input_shape=Tensor(seq_len, mc.hidden_size),
+                output_shape=Tensor(
+                    seq_len, (num_heads_per_rank + kv_heads_per_rank * 2) * head_dim
+                ),
+                weight_shape=Tensor(
+                    mc.hidden_size,
+                    (num_heads_per_rank + kv_heads_per_rank * 2) * head_dim,
+                ),
+                input_dtype=DataType.BF16,
+                output_dtype=DataType.BF16,
+                weight_dtype=DataType.BF16,
+            ),
+            batch_size=1,
+            num_layers=num_layers,
+        )
+        self._add_operator(create_operator("matmul", qkv_proj_metadata))
+
+        # 2. 输出投影
+        o_proj_metadata = OperatorMetadata(
+            name="o_proj",
+            op_type="matmul",
+            io_config=OperatorIO(
+                input_shape=Tensor(seq_len, num_heads_per_rank * head_dim),
+                output_shape=Tensor(seq_len, mc.hidden_size),
+                weight_shape=Tensor(num_heads_per_rank * head_dim, mc.hidden_size),
+                input_dtype=DataType.BF16,
+                output_dtype=DataType.BF16,
+                weight_dtype=DataType.BF16,
+            ),
+            batch_size=1,
+            num_layers=num_layers,
+        )
+        self._add_operator(create_operator("matmul", o_proj_metadata))
+
+        # 2.1. TP AllReduce (如果 TP > 1)
+        if sc.tp_size > 1:
+            if sc.mode == ForwardMode.EXTEND:
+                reduce_bandwidth = 85.0  # GB/s
+            else:  # DECODE
+                reduce_bandwidth = 22.64  # GB/s
+
+            all_reduce_metadata = OperatorMetadata(
+                name="attn_all_reduce",
+                op_type="transfer",
+                io_config=OperatorIO(
+                    input_shape=Tensor(seq_len, mc.hidden_size),
+                    output_shape=Tensor(seq_len, mc.hidden_size),
+                    weight_shape=Tensor(0, 0),
+                    input_dtype=DataType.BF16,
+                    output_dtype=DataType.BF16,
+                ),
+                batch_size=1,
+                num_layers=num_layers,
+            )
+            all_reduce_op = create_operator("transfer", all_reduce_metadata)
+            all_reduce_op._bandwidth_gb_s = reduce_bandwidth
+            self._add_transfer_operator(all_reduce_op)
+
+        # 3. 注意力核心
+        attn_operators = []
+
+        # Q-K 注意力
+        qk_metadata = OperatorMetadata(
+            name="qk",
+            op_type="attention",
+            io_config=OperatorIO(
+                input_shape=Tensor(seq_len, head_dim),
+                output_shape=Tensor(seq_len, sc.max_seqlen),
+                weight_shape=Tensor(head_dim, sc.max_seqlen),
+                input_dtype=DataType.BF16,
+                output_dtype=DataType.BF16,
+                weight_dtype=DataType.BF16,
+            ),
+            batch_size=num_heads_per_rank,
+            num_layers=num_layers,
+        )
+        attn_operators.append(
+            create_operator("attention", qk_metadata, mc.attention_type)
+        )
+
+        # Q-K-V 注意力
+        qkv_metadata = OperatorMetadata(
+            name="qkv",
+            op_type="attention",
+            io_config=OperatorIO(
+                input_shape=Tensor(seq_len, sc.max_seqlen),
+                output_shape=Tensor(seq_len, head_dim),
+                weight_shape=Tensor(sc.max_seqlen, head_dim),
+                input_dtype=DataType.BF16,
+                output_dtype=DataType.BF16,
+                weight_dtype=DataType.BF16,
+            ),
+            batch_size=kv_heads_per_rank,
+            num_layers=num_layers,
+        )
+        attn_operators.append(
+            create_operator("attention", qkv_metadata, mc.attention_type)
+        )
+
+        self._add_attention_operator("attention", attn_operators)
+
+    def _build_moe_operators(self, num_layers: int) -> None:
+        """构建 MoE 算子 (复用 DeepSeekV3Arch 逻辑，但无 shared expert)"""
+        mc = self.model_config
+        sc = self.schedule_config
+
+        if not isinstance(mc, Qwen3MoEConfig):
+            raise ValueError("Expected Qwen3MoEConfig")
+
+        seq_len = self.get_seq_length()
+        assert mc.num_experts % sc.ep_size == 0
+        experts_per_rank = mc.num_experts // sc.ep_size
+
+        if sc.mode == ForwardMode.EXTEND:
+            L = sc.max_seqlen
+        elif sc.mode == ForwardMode.DECODE:
+            L = sc.batch_size
+
+        assert L // sc.tp_size * mc.num_experts_per_tok % experts_per_rank == 0
+        # 计算每个 rank 的 token 数量
+        L_per_rank = L // sc.tp_size * mc.num_experts_per_tok // experts_per_rank
+
+        # MoE 共享中间层大小
+        _moe_intermediate_size = mc.moe_intermediate_size
+        if not sc.deepep:
+            _moe_intermediate_size = _moe_intermediate_size // sc.tp_size
+
+        # MoE Gate 投影
+        moe_gate_metadata = OperatorMetadata(
+            name="moe_gate",
+            op_type="matmul",
+            io_config=OperatorIO(
+                input_shape=Tensor(seq_len, mc.hidden_size),
+                output_shape=Tensor(seq_len, mc.num_experts),
+                weight_shape=Tensor(mc.hidden_size, mc.num_experts),
+                input_dtype=DataType.FP32,
+                output_dtype=DataType.FP32,
+                weight_dtype=DataType.FP32,
+            ),
+            batch_size=1,
+            num_layers=num_layers,
+        )
+        self._add_operator(create_operator("matmul", moe_gate_metadata))
+
+        # MoE Up 投影
+        moe_up_metadata = OperatorMetadata(
+            name="moe_up",
+            op_type="matmul",
+            io_config=OperatorIO(
+                input_shape=Tensor(L_per_rank, mc.hidden_size),
+                output_shape=Tensor(L_per_rank, 2 * mc.moe_intermediate_size),
+                weight_shape=Tensor(mc.hidden_size, 2 * mc.moe_intermediate_size),
+                input_dtype=DataType.INT8,
+                output_dtype=DataType.BF16,
+                weight_dtype=DataType.INT8,
+            ),
+            batch_size=int(experts_per_rank),
+            num_layers=num_layers,
+        )
+        self._add_operator(create_operator("matmul", moe_up_metadata))
+
+        # MoE Down 投影
+        moe_down_metadata = OperatorMetadata(
+            name="moe_down",
+            op_type="matmul",
+            io_config=OperatorIO(
+                input_shape=Tensor(L_per_rank, mc.moe_intermediate_size),
+                output_shape=Tensor(L_per_rank, mc.hidden_size),
+                weight_shape=Tensor(mc.moe_intermediate_size, mc.hidden_size),
+                input_dtype=DataType.INT8,
+                output_dtype=DataType.BF16,
+                weight_dtype=DataType.INT8,
+            ),
+            batch_size=int(experts_per_rank),
+            num_layers=num_layers,
+        )
+        self._add_operator(create_operator("matmul", moe_down_metadata))
+
+        # 注意：Qwen3 MoE 没有 shared expert，不需要 build shared_up/shared_down
+
+    def _build_deepep_operators(self, num_layers: int) -> None:
+        """构建 Deep-EP 传输算子"""
+        mc = self.model_config
+        sc = self.schedule_config
+
+        if not isinstance(mc, Qwen3MoEConfig):
+            raise ValueError("Expected Qwen3MoEConfig")
+
+        seq_len = self.get_seq_length()
+
+        # dispatch 传输算子
+        dispatch_metadata = OperatorMetadata(
+            name="dispatch",
+            op_type="transfer",
+            io_config=OperatorIO(
+                input_shape=Tensor(seq_len, mc.hidden_size),
+                output_shape=Tensor(seq_len, mc.hidden_size),
+                weight_shape=Tensor(0, 0),
+                input_dtype=DataType.FP32,
+                output_dtype=DataType.FP32,
+            ),
+            batch_size=1,
+            num_layers=num_layers,
+        )
+        dispatch_op = create_operator("transfer", dispatch_metadata)
+        # dispatch 使用 dma_bandwidth
+        if sc.mode == ForwardMode.EXTEND:
+            dispatch_op._bandwidth_gb_s = 100.0  # GB/s，默认值
+        else:  # DECODE
+            dispatch_op._bandwidth_gb_s = 18.58  # GB/s
+        self._add_transfer_operator(dispatch_op)
+
+        # combine 传输算子
+        combine_metadata = OperatorMetadata(
+            name="combine",
+            op_type="transfer",
+            io_config=OperatorIO(
+                input_shape=Tensor(seq_len, mc.hidden_size),
+                output_shape=Tensor(seq_len, mc.hidden_size),
+                weight_shape=Tensor(0, 0),
+                input_dtype=DataType.FP32,
+                output_dtype=DataType.FP32,
+            ),
+            batch_size=1,
+            num_layers=num_layers,
+        )
+        combine_op = create_operator("transfer", combine_metadata)
+        # combine 使用 dma_bandwidth
+        if sc.mode == ForwardMode.EXTEND:
+            combine_op._bandwidth_gb_s = 100.0  # GB/s，默认值
+        else:  # DECODE
+            combine_op._bandwidth_gb_s = 22.64  # GB/s
+        self._add_transfer_operator(combine_op)
+
+    def get_kv_cache(self):
+        return mha_gqa_kvcache(self.model_config, DataType.BF16)
+
+    def get_kv_cache_per_gpu(self):
+        return mha_gqa_kvcache_per_gpu(
+            self.model_config, DataType.BF16, self.schedule_config.tp_size
+        )

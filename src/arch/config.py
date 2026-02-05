@@ -105,6 +105,33 @@ class Qwen3Config(ModelConfig):
                 setattr(config, key, value)
         return config
 
+@dataclass
+class Qwen3MoEConfig(Qwen3Config):
+    """Qwen3 MoE 模型配置"""
+
+    model_type: str = "qwen3_moe"
+
+    # MoE 特有参数
+    num_experts: int = 128              # 对应 n_routed_experts
+    num_experts_per_tok: int = 8
+    moe_intermediate_size: int = 1536
+
+    # Qwen3 MoE 与 DeepSeek V3 的区别：
+    # - 没有 n_shared_experts
+    # - 没有 first_k_dense_replace (所有层都是 MoE)
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "Qwen3MoEConfig":
+        """从字典创建配置"""
+        config = Qwen3MoEConfig()
+        for key, value in data.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+            else:
+                setattr(config, key, value)
+        return config
+
+
 
 @dataclass
 class ScheduleConfig:
