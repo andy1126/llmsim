@@ -3,7 +3,9 @@ import sys
 import traceback
 
 from src.arch.config import ForwardMode, ModelConfig, ScheduleConfig
+from src.arch.models_arch.base_model_arch import BaseModelArch
 from src.arch.models_arch.model_arch import create_model_arch
+from src.arch.perf.model_info import ModelInfo
 from src.arch.perf_calculator import PerformanceCalculator
 from src.hardware.hardware_config import (
     DEFAULT_HARDWARE,
@@ -174,7 +176,7 @@ def main() -> None:
     print()
 
     try:
-        model_arch = create_model_arch(model_config, schedule_config)
+        model_arch: BaseModelArch = create_model_arch(model_config, schedule_config)
     except Exception as e:
         print(f"Failed to create model architecture: {e}", file=sys.stderr)
         sys.exit(1)
@@ -191,9 +193,16 @@ def main() -> None:
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
+    # build all the results in modelInfo
+    model_info = ModelInfo(
+        model_perf=model_perf,
+        model_kv_cache_per_gpu=model_arch.get_kv_cache_per_gpu(),
+        model_kv_cache_total=model_arch.get_kv_cache(),
+    )
+
     # Print performance report
     calculator.print_performance_report(
-        model_perf, output_format=args.output_format, output_path=args.output_file
+        model_info, output_format=args.output_format, output_path=args.output_file
     )
 
 

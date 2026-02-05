@@ -47,10 +47,10 @@ class BaseModelArch(ABC):
         """Add transfer operator"""
         self.transfer_operators.append(operator)
 
-    def get_kv_cache(self):
+    def get_kv_cache(self) -> float:
         """KVCache theoretically only depends on model config"""
-        pass
+        return 0.0
 
-    def get_kv_cache_per_gpu(self):
+    def get_kv_cache_per_gpu(self) -> float:
         """KVCache theoretically only depends on model config"""
-        pass
+        return 0.0

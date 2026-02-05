@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
+from src.arch.perf.model_info import ModelInfo
 from src.arch.perf_calculator import ModelPerformance
 
 
@@ -21,7 +22,7 @@ class ReportFormatter(ABC):
         pass
 
     @abstractmethod
-    def save(self, model_perf: ModelPerformance, output_path: str = None) -> None:
+    def save(self, model_info: ModelInfo, output_path: str = None) -> None:
         """
         Save performance report to file or output
 
@@ -31,7 +32,7 @@ class ReportFormatter(ABC):
         """
         pass
 
-    def _collect_data(self, model_perf: ModelPerformance) -> List[Dict[str, Any]]:
+    def _collect_data(self, model_info: ModelInfo) -> List[Dict[str, Any]]:
         """
         Collect all performance data for formatter use
 
@@ -41,6 +42,7 @@ class ReportFormatter(ABC):
         Returns:
             List containing all row data
         """
+        model_perf: ModelPerformance = model_info.model_perf
         all_rows = []
         for layer_perf in model_perf.layer_performances:
             for op_perf in layer_perf.operators:

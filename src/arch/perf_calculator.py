@@ -5,6 +5,7 @@ Performance calculation engine - Unified performance computation and analysis mo
 from src.arch.models_arch.model_arch import BaseModelArch
 from src.arch.op.operator_base import BaseOperator
 from src.arch.perf.layer_perf import LayerPerformance
+from src.arch.perf.model_info import ModelInfo
 from src.arch.perf.model_perf import ModelPerformance
 from src.arch.perf.op_perf import OperatorPerformance
 from src.hardware.hardware_config import HardwareConfig
@@ -255,7 +256,7 @@ class PerformanceCalculator:
 
     def print_performance_report(
         self,
-        model_perf: ModelPerformance,
+        model_info: ModelInfo,
         output_format: str = "console",
         output_path: str = None,
     ) -> None:
@@ -272,6 +273,6 @@ class PerformanceCalculator:
         formatter = create_formatter(output_format)
 
         if output_path:
-            formatter.save(model_perf, output_path)
+            formatter.save(model_info, output_path)
         else:
-            formatter.save(model_perf)
+            formatter.save(model_info)

@@ -1,5 +1,6 @@
 from typing import Any
 
+from src.arch.perf.model_info import ModelInfo
 from src.arch.perf_calculator import ModelPerformance
 from src.visual.report_base import ReportFormatter
 
@@ -7,7 +8,7 @@ from src.visual.report_base import ReportFormatter
 class ExcelReportFormatter(ReportFormatter):
     """Excel output formatter"""
 
-    def format(self, model_perf: ModelPerformance) -> Any:
+    def format(self, model_info: ModelInfo) -> Any:
         """
         Format performance report as Excel workbook
 
@@ -26,7 +27,8 @@ class ExcelReportFormatter(ReportFormatter):
                 "Please run: pip install openpyxl"
             )
 
-        all_rows = self._collect_data(model_perf)
+        all_rows = self._collect_data(model_info)
+        model_perf: ModelPerformance = model_info.model_perf
 
         # Create workbook and worksheet
         wb = openpyxl.Workbook()
@@ -91,7 +93,7 @@ class ExcelReportFormatter(ReportFormatter):
             "Compute(us)",
             "Memory(us)",
             "Transfer(us)",
-            "Single Layer Theory Latency(us)",
+            "Single Layer Latency(us)",
             "Total Time(ms)",
             "Percent(%)",
             "Weight/Single GPU All Layers",
@@ -202,6 +204,7 @@ class ExcelReportFormatter(ReportFormatter):
                 "Weight Memory/Single GPU (GB)",
                 model_perf.model_total_mem_occupy / (1024**3),
             ),
+            ("KV Cache Memory/Single GPU (GB)", model_info.model_kv_cache_per_gpu_gb),
         ]
         for idx, (label, value) in enumerate(other_data):
             ttft_throughput_row = (
@@ -212,12 +215,18 @@ class ExcelReportFormatter(ReportFormatter):
             label_cell.font = Font(bold=True)
 
             value_cell = ws.cell(row=ttft_throughput_row + idx, column=2)
-            value_cell.value = round(value, 3)
-            value_cell.number_format = "0.000"
+            value_cell.value = (
+                round(value, 6)
+                if label == "KV Cache Memory/Single GPU (GB)"
+                else round(value, 3)
+            )
+            value_cell.number_format = (
+                "0.000" if label != "KV Cache Memory/Single GPU (GB)" else "0.000000"
+            )
 
         return wb
 
-    def save(self, model_perf: ModelPerformance, output_path: str = None) -> None:
+    def save(self, model_info: ModelInfo, output_path: str = None) -> None:
         """
         Save performance report to Excel file
 
@@ -229,7 +238,7 @@ class ExcelReportFormatter(ReportFormatter):
             output_path = "Performance_Report.xlsx"
 
         try:
-            wb = self.format(model_perf)
+            wb = self.format(model_info)
             wb.save(output_path)
             print(f"Excel report saved to: {output_path}")
         except Exception as e:

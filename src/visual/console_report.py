@@ -1,4 +1,4 @@
-from src.arch.perf_calculator import ModelPerformance
+from src.arch.perf.model_info import ModelInfo
 from src.visual.report_base import ReportFormatter
 
 
@@ -28,14 +28,15 @@ class ConsoleReportFormatter(ReportFormatter):
         else:
             return " " * padding + text
 
-    def format(self, model_perf: ModelPerformance) -> None:
+    def format(self, model_info: ModelInfo) -> None:
         """
         Format and print performance report to console
 
         Args:
-            model_perf: Model performance metrics
+            model_info: Model Info Messages
         """
-        all_rows = self._collect_data(model_perf)
+        model_perf = model_info.model_perf
+        all_rows = self._collect_data(model_info)
 
         # Calculate maximum width for each column (considering Chinese characters)
         if all_rows:
@@ -97,7 +98,7 @@ class ConsoleReportFormatter(ReportFormatter):
             col_widths["memory"] = max(len("Memory(us)"), 10) + 1
             col_widths["transfer"] = max(len("Transfer(us)"), 10) + 1
             col_widths["op_time_single_layer"] = (
-                max(len("Single Layer Theory Latency(us)"), 15) + 1
+                max(len("Single Layer Latency(us)"), 15) + 1
             )
             col_widths["total"] = max(len("Total Time(ms)"), 10) + 1
             col_widths["percent"] = max(len("Percent(%)"), 8) + 1
@@ -149,7 +150,7 @@ class ConsoleReportFormatter(ReportFormatter):
             ("compute", "Compute(us)"),
             ("memory", "Memory(us)"),
             ("transfer", "Transfer(us)"),
-            ("op_time_single_layer", "Single Layer Theory Latency(us)"),
+            ("op_time_single_layer", "Single Layer Latency(us)"),
             ("total", "Total Time(ms)"),
             ("percent", "Percent(%)"),
             ("op_weight_mem", "Weight/Single GPU All Layers"),
@@ -224,7 +225,7 @@ class ConsoleReportFormatter(ReportFormatter):
         # Performance bottleneck
         bottleneck = model_perf.get_bottleneck_op()
         if bottleneck:
-            layer_name, op_name, op_perf = bottleneck
+            _, op_name, op_perf = bottleneck
             print("├" + "─" * (total_width - 2) + "┤")
             bottleneck_text = f"Performance Bottleneck: {op_name} (Total Time: {op_perf.total_time:.3f} ms)"
             padding = total_width - self._display_width(bottleneck_text) - 4
@@ -255,9 +256,15 @@ class ConsoleReportFormatter(ReportFormatter):
         padding = total_width - self._display_width(weight_mem_text) - 4
         print(f"│ {weight_mem_text}" + " " * max(padding, 1) + " │")
 
+        kv_cache_memory_per_gpu = model_info.model_kv_cache_per_gpu_gb
+        print("├" + "─" * (total_width - 2) + "┤")
+        kv_cache_text = f"KV Cache Memory/Single GPU: {kv_cache_memory_per_gpu:.6f} GB"
+        padding = total_width - self._display_width(kv_cache_text) - 4
+        print(f"│ {kv_cache_text}" + " " * max(padding, 1) + " │")
+
         print("└" + "─" * (total_width - 2) + "┘")
 
-    def save(self, model_perf: ModelPerformance, output_path: str = None) -> None:
+    def save(self, model_info: ModelInfo, output_path: str = None) -> None:
         """
         Save performance report to file
 
@@ -273,7 +280,7 @@ class ConsoleReportFormatter(ReportFormatter):
             old_stdout = sys.stdout
             sys.stdout = StringIO()
 
-            self.format(model_perf)
+            self.format(model_info)
 
             output = sys.stdout.getvalue()
             sys.stdout = old_stdout
@@ -283,4 +290,4 @@ class ConsoleReportFormatter(ReportFormatter):
             print(f"Report saved to: {output_path}")
         else:
             # Print directly to console
-            self.format(model_perf)
+            self.format(model_info)

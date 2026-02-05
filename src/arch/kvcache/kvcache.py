@@ -1,6 +1,5 @@
-from op.operator_base import DataType
-
-from arch.config import ModelConfig
+from src.arch.config import ModelConfig
+from src.arch.op.operator_base import DataType
 
 
 def mha_gqa_kvcache(config: ModelConfig, kvcache_dtype: DataType):
