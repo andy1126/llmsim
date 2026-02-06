@@ -28,6 +28,9 @@ dependencies = [
     "pytest",
     "json5",
     "openpyxl",
+    "huggingface-hub==1.4.0",
+    "socksio==1.0.0",
+    "httpx==0.28.1",
 ]
 
 [project.optional-dependencies]
