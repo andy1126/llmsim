@@ -1,6 +1,7 @@
 """
 Grid search optimizer - exhaustive search over all valid configurations
 """
+
 import time
 from typing import Optional
 
@@ -38,7 +39,7 @@ class GridSearchOptimizer(BaseOptimizer):
         super().__init__(
             search_space=search_space,
             objective=objective,
-            parallel_workers=parallel_workers
+            parallel_workers=parallel_workers,
         )
         self.max_evaluations = max_evaluations
 
@@ -55,7 +56,9 @@ class GridSearchOptimizer(BaseOptimizer):
         start_time = time.time()
         self.reset()
 
-        print(f"Starting grid search over {self.search_space.get_search_space_size()} configurations...")
+        print(
+            f"Starting grid search over {self.search_space.get_search_space_size()} configurations..."
+        )
 
         evaluation_count = 0
 
@@ -70,8 +73,10 @@ class GridSearchOptimizer(BaseOptimizer):
             perf = evaluator.evaluate(config)
 
             if perf is None:
-                print(f"  [{evaluation_count}] Config failed: TP={config.tp_size}, DP={config.dp_size}, "
-                      f"EP={config.ep_size}, BS={config.batch_size}")
+                print(
+                    f"  [{evaluation_count}] Config failed: TP={config.tp_size}, DP={config.dp_size}, "
+                    f"EP={config.ep_size}, BS={config.batch_size}"
+                )
                 continue
 
             # Calculate score and metrics
@@ -90,10 +95,12 @@ class GridSearchOptimizer(BaseOptimizer):
             is_best = self._update_best(config, score, metrics)
 
             status = "*** BEST ***" if is_best else ""
-            print(f"  [{evaluation_count}] TP={config.tp_size}, DP={config.dp_size}, "
-                  f"EP={config.ep_size}, BS={config.batch_size}, Mode={config.mode.name}, "
-                  f"Score={score:.4f}, TTFT={metrics['ttft_ms']:.2f}ms, "
-                  f"TPS={metrics['throughput_tps']:.2f} {status}")
+            print(
+                f"  [{evaluation_count}] TP={config.tp_size}, DP={config.dp_size}, "
+                f"EP={config.ep_size}, BS={config.batch_size}, Mode={config.mode.name}, "
+                f"Score={score:.4f}, TTFT={metrics['ttft_ms']:.2f}ms, "
+                f"TPS={metrics['throughput_tps']:.2f} {status}"
+            )
 
         total_time = time.time() - start_time
         print(f"\nGrid search completed in {total_time:.2f}s")

@@ -38,8 +38,8 @@ from src.optimization.constraints import (
 )
 from src.optimization.evaluator import PerformanceEvaluator
 from src.optimization.objective import (
-    BaseObjective,
     BalancedObjective,
+    BaseObjective,
     MaximizeThroughput,
     MinimizeTTFT,
     MultiObjective,
@@ -62,11 +62,9 @@ __all__ = [
     # Core service
     "OptimizationService",
     "get_recommended_config",
-
     # Configuration
     "SearchSpaceConfig",
     "SearchSpace",
-
     # Objectives
     "BaseObjective",
     "MinimizeTTFT",
@@ -74,14 +72,11 @@ __all__ = [
     "MultiObjective",
     "BalancedObjective",
     "create_objective",
-
     # Optimizers
     "BaseOptimizer",
     "GridSearchOptimizer",
-
     # Evaluator
     "PerformanceEvaluator",
-
     # Constraints
     "Constraint",
     "DivisibilityConstraint",
@@ -89,7 +84,6 @@ __all__ = [
     "LessThanOrEqualConstraint",
     "MemoryConstraint",
     "RangeConstraint",
-
     # Results
     "OptimizationResult",
     "OptimizationStep",

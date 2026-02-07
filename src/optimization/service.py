@@ -1,19 +1,15 @@
 """
 Optimization service - main interface for parameter optimization
 """
-import time
-from typing import Dict, List, Optional, Type, Union
+
+from typing import List, Optional, Union
 
 from src.arch.config import ModelConfig, ScheduleConfig
-from src.arch.model_type import ForwardMode
 from src.hardware.hardware_config import HardwareConfig
 from src.optimization.config import SearchSpaceConfig
 from src.optimization.evaluator import PerformanceEvaluator
 from src.optimization.objective import (
     BaseObjective,
-    BalancedObjective,
-    MaximizeThroughput,
-    MinimizeTTFT,
     create_objective,
 )
 from src.optimization.optimizers.base import BaseOptimizer
@@ -69,9 +65,7 @@ class OptimizationService:
 
         # Create search space
         search_space = SearchSpace(
-            config=search_space_config,
-            max_seqlen=max_seqlen,
-            is_moe_model=is_moe_model
+            config=search_space_config, max_seqlen=max_seqlen, is_moe_model=is_moe_model
         )
 
         # Create objective function
@@ -79,8 +73,7 @@ class OptimizationService:
 
         # Create evaluator
         evaluator = PerformanceEvaluator(
-            model_config=model_config,
-            hardware_config=hardware_config
+            model_config=model_config, hardware_config=hardware_config
         )
 
         # Create optimizer
@@ -89,7 +82,7 @@ class OptimizationService:
             search_space=search_space,
             objective=objective,
             parallel_workers=parallel_workers,
-            max_evaluations=max_evaluations
+            max_evaluations=max_evaluations,
         )
 
         # Run optimization
@@ -125,7 +118,7 @@ class OptimizationService:
                 ep_size=[1, 2, 4, 8] if self._is_moe_model(model_config) else [1],
                 batch_size=[1, 2, 4, 8],
                 mode="extend",
-                world_size=world_size
+                world_size=world_size,
             )
             objective_type = "minimize_ttft"
         elif priority == "throughput":
@@ -136,7 +129,7 @@ class OptimizationService:
                 ep_size=[1, 2, 4, 8, 16] if self._is_moe_model(model_config) else [1],
                 batch_size=[8, 16, 32, 64, 128],
                 mode="extend",
-                world_size=world_size
+                world_size=world_size,
             )
             objective_type = "maximize_tps"
         else:  # balanced
@@ -147,7 +140,7 @@ class OptimizationService:
                 ep_size=[1, 2, 4, 8] if self._is_moe_model(model_config) else [1],
                 batch_size=[1, 2, 4, 8, 16, 32, 64],
                 mode="extend",
-                world_size=world_size
+                world_size=world_size,
             )
             objective_type = "balanced"
 
@@ -157,7 +150,7 @@ class OptimizationService:
             hardware_config=hardware_config,
             max_seqlen=max_seqlen,
             search_space_config=search_config,
-            objective_type=objective_type
+            objective_type=objective_type,
         )
 
         # Generate explanation
@@ -167,7 +160,7 @@ class OptimizationService:
             config=result.best_config,
             metrics=result.best_metrics,
             priority=priority,
-            explanation=explanation
+            explanation=explanation,
         )
 
     def analyze_sensitivity(
@@ -177,7 +170,7 @@ class OptimizationService:
         base_config: ScheduleConfig,
         param_name: str,
         param_range: Union[List, tuple],
-        objective_type: str = "balanced"
+        objective_type: str = "balanced",
     ) -> SensitivityAnalysisResult:
         """
         Analyze sensitivity of a parameter
@@ -194,8 +187,7 @@ class OptimizationService:
             Sensitivity analysis result
         """
         evaluator = PerformanceEvaluator(
-            model_config=model_config,
-            hardware_config=hardware_config
+            model_config=model_config, hardware_config=hardware_config
         )
 
         objective = create_objective(objective_type)
@@ -209,7 +201,9 @@ class OptimizationService:
         scores = []
         metrics = {"ttft": [], "throughput": [], "total_time": []}
 
-        print(f"Analyzing sensitivity of {param_name} over {len(param_values)} values...")
+        print(
+            f"Analyzing sensitivity of {param_name} over {len(param_values)} values..."
+        )
 
         for value in param_values:
             # Create modified config
@@ -232,16 +226,16 @@ class OptimizationService:
                 metrics["throughput"].append(perf.get_throughput())
                 metrics["total_time"].append(perf.total_time)
             else:
-                scores.append(float('inf'))
-                metrics["ttft"].append(float('inf'))
+                scores.append(float("inf"))
+                metrics["ttft"].append(float("inf"))
                 metrics["throughput"].append(0)
-                metrics["total_time"].append(float('inf'))
+                metrics["total_time"].append(float("inf"))
 
         return SensitivityAnalysisResult(
             param_name=param_name,
             param_values=param_values,
             scores=scores,
-            metrics=metrics
+            metrics=metrics,
         )
 
     def _is_moe_model(self, model_config: ModelConfig) -> bool:
@@ -255,7 +249,7 @@ class OptimizationService:
         search_space: SearchSpace,
         objective: BaseObjective,
         parallel_workers: int,
-        max_evaluations: Optional[int] = None
+        max_evaluations: Optional[int] = None,
     ) -> BaseOptimizer:
         """Create optimizer instance"""
         optimizer_type = optimizer_type.lower()
@@ -265,7 +259,7 @@ class OptimizationService:
                 search_space=search_space,
                 objective=objective,
                 parallel_workers=parallel_workers,
-                max_evaluations=max_evaluations
+                max_evaluations=max_evaluations,
             )
         else:
             raise ValueError(f"Unknown optimizer type: {optimizer_type}")
@@ -279,9 +273,7 @@ class OptimizationService:
         metrics = result.best_metrics
 
         explanations = []
-        explanations.append(
-            f"Recommended configuration for '{priority}' priority:"
-        )
+        explanations.append(f"Recommended configuration for '{priority}' priority:")
         explanations.append(
             f"  Tensor Parallel (TP): {config.tp_size} - "
             f"Distributes attention computation across {config.tp_size} GPUs"
@@ -296,14 +288,11 @@ class OptimizationService:
                 f"Distributes MoE experts across {config.ep_size} partitions"
             )
         explanations.append(
-            f"  Batch Size: {config.batch_size} - "
-            f"Optimal for {priority} workload"
+            f"  Batch Size: {config.batch_size} - " f"Optimal for {priority} workload"
         )
 
         if "ttft_ms" in metrics:
-            explanations.append(
-                f"\nExpected Performance:"
-            )
+            explanations.append("\nExpected Performance:")
             explanations.append(
                 f"  Time To First Token (TTFT): {metrics['ttft_ms']:.2f} ms"
             )
@@ -340,5 +329,5 @@ def get_recommended_config(
         hardware_config=hardware_config,
         max_seqlen=max_seqlen,
         priority=priority,
-        world_size=world_size
+        world_size=world_size,
     )

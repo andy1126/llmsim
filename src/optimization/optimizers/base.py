@@ -1,6 +1,7 @@
 """
 Base optimizer class for parameter optimization
 """
+
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -40,7 +41,7 @@ class BaseOptimizer(ABC):
         self.early_stop_patience = early_stop_patience
 
         self._best_config: Optional[ScheduleConfig] = None
-        self._best_score: float = float('inf')
+        self._best_score: float = float("inf")
         self._optimization_history: List[OptimizationStep] = []
         self._iteration: int = 0
 
@@ -69,12 +70,7 @@ class BaseOptimizer(ABC):
         """Get the history of optimization steps"""
         return self._optimization_history.copy()
 
-    def _update_best(
-        self,
-        config: ScheduleConfig,
-        score: float,
-        metrics: dict
-    ) -> bool:
+    def _update_best(self, config: ScheduleConfig, score: float, metrics: dict) -> bool:
         """
         Update the best configuration if score is better
 
@@ -93,10 +89,7 @@ class BaseOptimizer(ABC):
         return False
 
     def _record_step(
-        self,
-        config: ScheduleConfig,
-        score: float,
-        metrics: dict
+        self, config: ScheduleConfig, score: float, metrics: dict
     ) -> OptimizationStep:
         """
         Record an optimization step
@@ -111,10 +104,7 @@ class BaseOptimizer(ABC):
         """
         self._iteration += 1
         step = OptimizationStep(
-            iteration=self._iteration,
-            config=config,
-            metrics=metrics,
-            score=score
+            iteration=self._iteration, config=config, metrics=metrics, score=score
         )
         self._optimization_history.append(step)
         return step
@@ -132,14 +122,14 @@ class BaseOptimizer(ABC):
             return False
 
         # Check if there was improvement in the last patience iterations
-        recent_steps = self._optimization_history[-self.early_stop_patience:]
+        recent_steps = self._optimization_history[-self.early_stop_patience :]
         best_in_recent = min(step.score for step in recent_steps)
 
         # Compare with best before the recent window
         if len(self._optimization_history) > self.early_stop_patience:
             earlier_best = min(
                 step.score
-                for step in self._optimization_history[:-self.early_stop_patience]
+                for step in self._optimization_history[: -self.early_stop_patience]
             )
         else:
             earlier_best = self._best_score
@@ -171,12 +161,12 @@ class BaseOptimizer(ABC):
             optimization_history=self._optimization_history,
             total_evaluations=self._iteration,
             total_time_seconds=total_time_seconds,
-            search_space_size=self.search_space.get_search_space_size()
+            search_space_size=self.search_space.get_search_space_size(),
         )
 
     def reset(self) -> None:
         """Reset the optimizer state"""
         self._best_config = None
-        self._best_score = float('inf')
+        self._best_score = float("inf")
         self._optimization_history = []
         self._iteration = 0

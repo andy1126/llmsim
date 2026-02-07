@@ -1,7 +1,8 @@
 """
 Search space definition and parameter generation for optimization
 """
-from typing import Iterator, List, Optional, Union
+
+from typing import Iterator, List
 
 from src.arch.config import ScheduleConfig
 from src.arch.model_type import ForwardMode
@@ -48,7 +49,7 @@ class SearchSpace:
             DivisibilityConstraint(
                 dividend_attr="max_seqlen",
                 divisor_attr="tp_size",
-                description="max_seqlen % tp_size == 0"
+                description="max_seqlen % tp_size == 0",
             )
         )
 
@@ -57,7 +58,7 @@ class SearchSpace:
             DivisibilityConstraint(
                 dividend_attr="batch_size",
                 divisor_attr="tp_size",
-                description="batch_size % tp_size == 0"
+                description="batch_size % tp_size == 0",
             )
         )
 
@@ -67,7 +68,7 @@ class SearchSpace:
                 ProductConstraint(
                     factor_attrs=["tp_size", "dp_size"],
                     target_attr=f"={self.config.world_size}",
-                    description=f"tp_size * dp_size = {self.config.world_size}"
+                    description=f"tp_size * dp_size = {self.config.world_size}",
                 )
             )
 
@@ -77,7 +78,7 @@ class SearchSpace:
                 LessThanOrEqualConstraint(
                     left_attr="ep_size",
                     right_attr="dp_size",
-                    description="ep_size <= dp_size"
+                    description="ep_size <= dp_size",
                 )
             )
 
@@ -100,7 +101,9 @@ class SearchSpace:
 
         for constraint in self._constraints:
             if not constraint.check(schedule_config, **context):
-                violations.append(constraint.get_violation_message(schedule_config, **context))
+                violations.append(
+                    constraint.get_violation_message(schedule_config, **context)
+                )
 
         return len(violations) == 0, violations
 
@@ -132,7 +135,11 @@ class SearchSpace:
                             if not self.is_moe_model and ep > 1:
                                 continue
 
-                            mode = ForwardMode.EXTEND if mode_str == "extend" else ForwardMode.DECODE
+                            mode = (
+                                ForwardMode.EXTEND
+                                if mode_str == "extend"
+                                else ForwardMode.DECODE
+                            )
 
                             config = ScheduleConfig(
                                 tp_size=tp,
@@ -160,7 +167,7 @@ class SearchSpace:
         model_memory_gb: float,
         gpu_memory_gb: float,
         num_gpus: int,
-        safety_factor: float = 0.9
+        safety_factor: float = 0.9,
     ) -> List[ScheduleConfig]:
         """
         Filter configurations by memory constraint

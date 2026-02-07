@@ -1,10 +1,9 @@
 """
 Search space configuration for optimization
 """
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
 
-from src.arch.model_type import ForwardMode
+from dataclasses import dataclass, field
+from typing import List, Optional, Union
 
 
 @dataclass
@@ -26,7 +25,9 @@ class SearchSpaceConfig:
     ep_size: Union[int, tuple, List[int], None] = None
 
     # Batch size: single value, range (min, max), or list of values
-    batch_size: Union[int, tuple, List[int]] = field(default_factory=lambda: [1, 2, 4, 8, 16, 32, 64])
+    batch_size: Union[int, tuple, List[int]] = field(
+        default_factory=lambda: [1, 2, 4, 8, 16, 32, 64]
+    )
 
     # Forward mode: single mode or list of modes
     mode: Union[str, List[str]] = "extend"
@@ -101,11 +102,11 @@ class SearchSpaceConfig:
     def get_search_space_size(self) -> int:
         """Calculate the total size of the search space"""
         return (
-            len(self.get_tp_values()) *
-            len(self.get_dp_values()) *
-            len(self.get_ep_values()) *
-            len(self.get_batch_size_values()) *
-            len(self.get_mode_values())
+            len(self.get_tp_values())
+            * len(self.get_dp_values())
+            * len(self.get_ep_values())
+            * len(self.get_batch_size_values())
+            * len(self.get_mode_values())
         )
 
     def to_dict(self) -> dict:

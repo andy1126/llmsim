@@ -1,6 +1,7 @@
 """
 Constraint classes for parameter validation
 """
+
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -24,7 +25,9 @@ class Constraint(ABC):
 class DivisibilityConstraint(Constraint):
     """Constraint that checks if one value is divisible by another"""
 
-    def __init__(self, dividend_attr: str, divisor_attr: str, description: Optional[str] = None):
+    def __init__(
+        self, dividend_attr: str, divisor_attr: str, description: Optional[str] = None
+    ):
         """
         Args:
             dividend_attr: Attribute name of the dividend (e.g., "max_seqlen")
@@ -67,7 +70,12 @@ class DivisibilityConstraint(Constraint):
 class ProductConstraint(Constraint):
     """Constraint that checks if the product of factors equals a target value"""
 
-    def __init__(self, factor_attrs: List[str], target_attr: str, description: Optional[str] = None):
+    def __init__(
+        self,
+        factor_attrs: List[str],
+        target_attr: str,
+        description: Optional[str] = None,
+    ):
         """
         Args:
             factor_attrs: List of attribute names to multiply
@@ -124,7 +132,9 @@ class ProductConstraint(Constraint):
 class LessThanOrEqualConstraint(Constraint):
     """Constraint that checks if one value is less than or equal to another"""
 
-    def __init__(self, left_attr: str, right_attr: str, description: Optional[str] = None):
+    def __init__(
+        self, left_attr: str, right_attr: str, description: Optional[str] = None
+    ):
         """
         Args:
             left_attr: Attribute name of the left side value
@@ -192,7 +202,12 @@ class MemoryConstraint(Constraint):
 class RangeConstraint(Constraint):
     """Constraint that checks if a value is within a range"""
 
-    def __init__(self, attr: str, min_value: Optional[int] = None, max_value: Optional[int] = None):
+    def __init__(
+        self,
+        attr: str,
+        min_value: Optional[int] = None,
+        max_value: Optional[int] = None,
+    ):
         """
         Args:
             attr: Attribute name to check

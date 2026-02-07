@@ -4,6 +4,7 @@ Objective functions for optimization
 Defines different optimization goals: minimize TTFT, maximize throughput,
 or multi-objective optimization.
 """
+
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
@@ -101,7 +102,7 @@ class MaximizeThroughput(BaseObjective):
         throughput = perf.get_throughput()
         # Return negative for minimization convention, or large value if throughput is 0
         if throughput <= 0:
-            return float('inf')
+            return float("inf")
         normalized = self._normalize(throughput, "throughput")
         # For maximization, we negate the normalized value
         return -normalized if self.normalize else -throughput
@@ -125,7 +126,8 @@ class MinimizeTotalTime(BaseObjective):
     def get_metrics(self, perf: ModelPerformance) -> Dict[str, float]:
         return {
             "total_time_ms": perf.total_time,
-            "compute_time_ms": perf.total_compute_time / 1000.0,  # Convert from us to ms
+            "compute_time_ms": perf.total_compute_time
+            / 1000.0,  # Convert from us to ms
             "memory_time_ms": perf.total_memory_time / 1000.0,
         }
 
@@ -141,11 +143,7 @@ class MultiObjective(BaseObjective):
         })
     """
 
-    def __init__(
-        self,
-        objectives: Dict[str, tuple],
-        normalize: bool = True
-    ):
+    def __init__(self, objectives: Dict[str, tuple], normalize: bool = True):
         """
         Args:
             objectives: Dictionary mapping names to (objective, weight) tuples
@@ -166,13 +164,13 @@ class MultiObjective(BaseObjective):
 
         for name, (objective, weight) in self.objectives.items():
             score = objective.evaluate(perf)
-            if score == float('inf'):
-                return float('inf')
+            if score == float("inf"):
+                return float("inf")
             total_score += score * weight
             total_weight += weight
 
         if total_weight == 0:
-            return float('inf')
+            return float("inf")
 
         return total_score / total_weight
 
@@ -203,7 +201,7 @@ class BalancedObjective(MultiObjective):
         self,
         ttft_weight: float = 0.5,
         throughput_weight: float = 0.5,
-        normalize: bool = True
+        normalize: bool = True,
     ):
         """
         Args:

@@ -12,6 +12,7 @@ Usage:
         --objective maximize_tps \
         --output result.json
 """
+
 import argparse
 import json
 import sys
@@ -78,7 +79,7 @@ Examples:
       --batch_range "1-128" \\
       --objective balanced \\
       --output result.json
-        """
+        """,
     )
 
     # Model and hardware
@@ -86,13 +87,13 @@ Examples:
         "--model_path",
         type=str,
         required=True,
-        help="Path to model configuration JSON file"
+        help="Path to model configuration JSON file",
     )
     parser.add_argument(
         "--hardware",
         type=str,
         default="h800",
-        help="Hardware configuration name (h20, h800, gb200, klx_p800) or path to JSON"
+        help="Hardware configuration name (h20, h800, gb200, klx_p800) or path to JSON",
     )
 
     # Fixed parameters
@@ -100,14 +101,14 @@ Examples:
         "--max_seqlen",
         type=int,
         required=True,
-        help="Maximum sequence length (fixed parameter)"
+        help="Maximum sequence length (fixed parameter)",
     )
     parser.add_argument(
         "--mode",
         type=str,
         default="extend",
         choices=["extend", "decode"],
-        help="Forward mode: extend (prefill) or decode"
+        help="Forward mode: extend (prefill) or decode",
     )
 
     # Search space
@@ -115,31 +116,31 @@ Examples:
         "--tp_range",
         type=parse_range,
         default="1,2,4,8",
-        help="Tensor Parallel range (e.g., '1,2,4,8' or '1-8')"
+        help="Tensor Parallel range (e.g., '1,2,4,8' or '1-8')",
     )
     parser.add_argument(
         "--dp_range",
         type=parse_range,
         default="1,2,4,8",
-        help="Data Parallel range (e.g., '1,2,4,8' or '1-8')"
+        help="Data Parallel range (e.g., '1,2,4,8' or '1-8')",
     )
     parser.add_argument(
         "--ep_range",
         type=parse_range,
         default=None,
-        help="Expert Parallel range (e.g., '1,2,4,8' or '1-16'). Auto-detected for MoE models."
+        help="Expert Parallel range (e.g., '1,2,4,8' or '1-16'). Auto-detected for MoE models.",
     )
     parser.add_argument(
         "--batch_range",
         type=parse_range,
         default="1-128",
-        help="Batch size range (e.g., '1,2,4,8' or '1-128')"
+        help="Batch size range (e.g., '1,2,4,8' or '1-128')",
     )
     parser.add_argument(
         "--world_size",
         type=int,
         default=None,
-        help="Total number of GPUs (constrains TP * DP)"
+        help="Total number of GPUs (constrains TP * DP)",
     )
 
     # Optimization settings
@@ -148,20 +149,20 @@ Examples:
         type=str,
         default="maximize_tps",
         choices=["minimize_ttft", "maximize_tps", "balanced", "latency", "throughput"],
-        help="Optimization objective"
+        help="Optimization objective",
     )
     parser.add_argument(
         "--optimizer",
         type=str,
         default="grid_search",
         choices=["grid_search"],
-        help="Optimization algorithm"
+        help="Optimization algorithm",
     )
     parser.add_argument(
         "--max_evaluations",
         type=int,
         default=None,
-        help="Maximum number of configurations to evaluate"
+        help="Maximum number of configurations to evaluate",
     )
 
     # Quick recommendation mode
@@ -170,21 +171,14 @@ Examples:
         type=str,
         default=None,
         choices=["latency", "throughput", "balanced"],
-        help="Quick recommendation mode (skips full search)"
+        help="Quick recommendation mode (skips full search)",
     )
 
     # Output
     parser.add_argument(
-        "--output",
-        type=str,
-        default=None,
-        help="Output file path (JSON format)"
+        "--output", type=str, default=None, help="Output file path (JSON format)"
     )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Verbose output"
-    )
+    parser.add_argument("--verbose", action="store_true", help="Verbose output")
 
     return parser
 
@@ -219,7 +213,7 @@ def format_result(result: OptimizationResult, verbose: bool = False) -> str:
 
     if result.best_config:
         config = result.best_config
-        lines.append(f"\nBest Configuration:")
+        lines.append("\nBest Configuration:")
         lines.append(f"  Tensor Parallel (TP): {config.tp_size}")
         lines.append(f"  Data Parallel (DP): {config.dp_size}")
         lines.append(f"  Expert Parallel (EP): {config.ep_size}")
@@ -227,7 +221,7 @@ def format_result(result: OptimizationResult, verbose: bool = False) -> str:
         lines.append(f"  Mode: {config.mode.name}")
 
         if result.best_metrics:
-            lines.append(f"\nPerformance Metrics:")
+            lines.append("\nPerformance Metrics:")
             for key, value in result.best_metrics.items():
                 if isinstance(value, float):
                     lines.append(f"  {key}: {value:.4f}")
@@ -236,13 +230,13 @@ def format_result(result: OptimizationResult, verbose: bool = False) -> str:
     else:
         lines.append("\nNo valid configuration found!")
 
-    lines.append(f"\nOptimization Statistics:")
+    lines.append("\nOptimization Statistics:")
     lines.append(f"  Total evaluations: {result.total_evaluations}")
     lines.append(f"  Search space size: {result.search_space_size}")
     lines.append(f"  Total time: {result.total_time_seconds:.2f}s")
 
     if verbose and result.optimization_history:
-        lines.append(f"\nTop 10 Configurations:")
+        lines.append("\nTop 10 Configurations:")
         sorted_history = sorted(result.optimization_history, key=lambda x: x.score)
         for i, step in enumerate(sorted_history[:10], 1):
             config = step.config
@@ -282,7 +276,7 @@ def save_result(result: OptimizationResult, output_path: str):
                 "metrics": step.metrics,
             }
             for step in result.optimization_history
-        ]
+        ],
     }
 
     with open(output_path, "w") as f:
@@ -314,7 +308,7 @@ def main():
             hardware_config=hardware_config,
             max_seqlen=args.max_seqlen,
             priority=args.recommend,
-            world_size=args.world_size
+            world_size=args.world_size,
         )
 
         print("\n" + "=" * 60)
@@ -359,10 +353,10 @@ def main():
             ep_size=ep_range,
             batch_size=args.batch_range,
             mode=args.mode,
-            world_size=args.world_size
+            world_size=args.world_size,
         )
 
-        print(f"\nSearch space:")
+        print("\nSearch space:")
         print(f"  TP: {search_config.get_tp_values()}")
         print(f"  DP: {search_config.get_dp_values()}")
         print(f"  EP: {search_config.get_ep_values()}")
@@ -380,7 +374,7 @@ def main():
             search_space_config=search_config,
             objective_type=args.objective,
             optimizer_type=args.optimizer,
-            max_evaluations=args.max_evaluations
+            max_evaluations=args.max_evaluations,
         )
 
         # Display results

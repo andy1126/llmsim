@@ -1,8 +1,9 @@
 """
 Optimization results data structures
 """
+
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from src.arch.config import ScheduleConfig
 
@@ -32,7 +33,7 @@ class OptimizationResult:
         """Get the best score achieved"""
         if self.optimization_history:
             return min(step.score for step in self.optimization_history)
-        return float('inf')
+        return float("inf")
 
     def get_improvement_history(self) -> List[tuple]:
         """Get list of (iteration, score) tuples showing improvement over time"""
@@ -40,7 +41,7 @@ class OptimizationResult:
             return []
 
         history = []
-        best_so_far = float('inf')
+        best_so_far = float("inf")
         for step in self.optimization_history:
             best_so_far = min(best_so_far, step.score)
             history.append((step.iteration, best_so_far))

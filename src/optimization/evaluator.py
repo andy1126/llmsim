@@ -1,10 +1,10 @@
 """
 Performance evaluator - bridges optimizer with performance calculator
 """
+
 from typing import List, Optional
 
 from src.arch.config import ModelConfig, ScheduleConfig
-from src.arch.model_type import ForwardMode
 from src.arch.models_arch.model_arch import create_model_arch
 from src.arch.perf.model_perf import ModelPerformance
 from src.arch.perf_calculator import PerformanceCalculator
@@ -66,8 +66,7 @@ class PerformanceEvaluator:
         try:
             # Create model architecture
             model_arch = create_model_arch(
-                model_config=self.model_config,
-                schedule_config=schedule_config
+                model_config=self.model_config, schedule_config=schedule_config
             )
 
             # Calculate performance
@@ -85,9 +84,7 @@ class PerformanceEvaluator:
             return None
 
     def evaluate_batch(
-        self,
-        schedule_configs: List[ScheduleConfig],
-        parallel_workers: int = 1
+        self, schedule_configs: List[ScheduleConfig], parallel_workers: int = 1
     ) -> List[Optional[ModelPerformance]]:
         """
         Evaluate multiple configurations
@@ -118,8 +115,7 @@ class PerformanceEvaluator:
         """
         try:
             model_arch = create_model_arch(
-                model_config=self.model_config,
-                schedule_config=schedule_config
+                model_config=self.model_config, schedule_config=schedule_config
             )
             model_arch.build_operators()
 
@@ -131,13 +127,13 @@ class PerformanceEvaluator:
 
             # Assume FP16/BF16 (2 bytes per parameter)
             memory_bytes = total_params * 2
-            memory_gb = memory_bytes / (1024 ** 3)
+            memory_gb = memory_bytes / (1024**3)
 
             return memory_gb
 
         except Exception as e:
             print(f"Warning: Memory estimation failed: {e}")
-            return float('inf')
+            return float("inf")
 
     def clear_cache(self) -> None:
         """Clear the evaluation cache"""
@@ -145,7 +141,4 @@ class PerformanceEvaluator:
 
     def get_cache_stats(self) -> dict:
         """Get cache statistics"""
-        return {
-            "cache_size": len(self._cache),
-            "cache_keys": list(self._cache.keys())
-        }
+        return {"cache_size": len(self._cache), "cache_keys": list(self._cache.keys())}
